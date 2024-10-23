@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
@@ -14,16 +15,19 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'barcode' => 'required|unique:products',
             'description' => 'required',
-            'price' => 'required|numeric',
-            'quantity' => 'required|integer',
+            'price' => 'required|numeric|min:0',
+            'quantity' => 'required|integer|min:0',
             'category' => 'required',
         ]);
 
-        $product = Product::create($request->all());
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
 
+        $product = Product::create($request->all());
         return response()->json($product, 201);
     }
 
@@ -35,8 +39,20 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-        $product->update($request->all());
+        
+        $validator = Validator::make($request->all(), [
+            'barcode' => 'required|unique:products,barcode,' . $id,
+            'description' => 'required',
+            'price' => 'required|numeric|min:0',
+            'quantity' => 'required|integer|min:0',
+            'category' => 'required',
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $product->update($request->all());
         return response()->json($product, 200);
     }
 
