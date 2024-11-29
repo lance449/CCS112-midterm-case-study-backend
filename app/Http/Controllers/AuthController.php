@@ -30,32 +30,29 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
+        $credentials = $request->validate([
             'email' => 'required|email',
-            'password' => 'required',
+            'password' => 'required'
         ]);
-    
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            $user = User::where('email', $request->email)->first();
-    
-            if (!$user) {
-                return response()->json(['message' => 'Email not found'], 422);
-            }
-    
-            return response()->json(['message' => 'Incorrect password'], 422);
+
+        if (Auth::attempt($credentials)) {
+            $user = Auth::user();
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role
+                ]
+            ]);
         }
-    
-        $user = Auth::user();
-        $token = $user->createToken('auth_token')->plainTextToken;
-    
-        // Determine redirect URL based on user role
-        $dashboardRedirectUrl = $user->role === 'admin' ? '/dashboard' : '/products';
-    
+
         return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'dashboard_redirect_url' => $dashboardRedirectUrl,
-        ], 200);
+            'message' => 'Invalid credentials'
+        ], 401);
     }
 
     public function logout(Request $request)
