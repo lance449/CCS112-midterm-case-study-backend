@@ -13,16 +13,18 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:admin,customer',  // Ensure role is either 'admin' or 'customer'
         ]);
+
+        $role = $request->role ?: 'customer';
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'customer'
         ]);
 
         return response()->json(['message' => 'User registered successfully', 'user' => $user], 201);
@@ -34,23 +36,27 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required',
         ]);
-
+    
         if (!Auth::attempt($request->only('email', 'password'))) {
             $user = User::where('email', $request->email)->first();
-
+    
             if (!$user) {
                 return response()->json(['message' => 'Email not found'], 422);
             }
-
+    
             return response()->json(['message' => 'Incorrect password'], 422);
         }
-
+    
         $user = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
-
+    
+        // Return different data based on the user's role
+        $dashboardRedirectUrl = $user->role === 'Admin' ? '/dashboard' : '/customer-dashboard';
+    
         return response()->json([
             'user' => $user,
-            'token' => $token
+            'token' => $token,
+            'dashboard_redirect_url' => $dashboardRedirectUrl,
         ], 200);
     }
 
