@@ -16,15 +16,13 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:admin,customer',  // Ensure role is either 'admin' or 'customer'
         ]);
-
-        $role = $request->role ?: 'customer';
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => 'customer'
         ]);
 
         return response()->json(['message' => 'User registered successfully', 'user' => $user], 201);
