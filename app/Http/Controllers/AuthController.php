@@ -48,8 +48,8 @@ class AuthController extends Controller
         $user = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
     
-        // Return different data based on the user's role
-        $dashboardRedirectUrl = $user->role === 'Admin' ? '/dashboard' : '/customer-dashboard';
+        // Determine redirect URL based on user role
+        $dashboardRedirectUrl = $user->role === 'admin' ? '/dashboard' : '/products';
     
         return response()->json([
             'user' => $user,
