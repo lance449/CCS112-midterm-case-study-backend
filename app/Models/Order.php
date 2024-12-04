@@ -19,6 +19,10 @@ class Order extends Model
         'status'
     ];
 
+    protected $with = ['items'];
+
+    protected $appends = ['total'];
+
     public function items()
     {
         return $this->hasMany(OrderItem::class);
@@ -27,5 +31,12 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getTotalAttribute()
+    {
+        return $this->items->sum(function($item) {
+            return $item->price * $item->quantity;
+        });
     }
 } 

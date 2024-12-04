@@ -24,36 +24,35 @@ class OrderController extends Controller
                 'items' => 'required|array'
             ]);
 
-            // Create the order
+            // Calculate total amount from items
+            $totalAmount = collect($request->items)->sum(function($item) {
+                return $item['price'] * $item['quantity'];
+            });
+
+            // Create the order with calculated total
             $order = Order::create([
                 'user_id' => auth()->id(),
                 'customer_name' => $request->customer_name,
                 'shipping_address' => $request->shipping_address,
                 'payment_method' => $request->payment_method,
                 'contact_number' => $request->contact_number,
-                'total_amount' => collect($request->items)->sum(function($item) {
-                    return $item['price'] * $item['quantity'];
-                }),
+                'total_amount' => $totalAmount,  // Save the calculated total
                 'status' => 'pending'
             ]);
 
             // Process each ordered item
             foreach ($request->items as $item) {
-                // Find the product
                 $product = Product::find($item['product_id']);
                 
                 if (!$product) {
                     throw new \Exception("Product not found");
                 }
 
-                // Calculate new quantity
+                // Update product quantity
                 $newQuantity = $product->quantity - $item['quantity'];
-                
                 if ($newQuantity < 0) {
                     throw new \Exception("Not enough stock for " . $product->description);
                 }
-
-                // Update the product quantity
                 $product->quantity = $newQuantity;
                 $product->save();
 
@@ -74,7 +73,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Order placed successfully',
-                'order' => $order
+                'order' => $order->load('items')  // Return order with items
             ]);
 
         } catch (\Exception $e) {
@@ -82,6 +81,27 @@ class OrderController extends Controller
             
             return response()->json([
                 'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function index(Request $request)
+    {
+        try {
+            $orders = Order::with(['items.product'])
+                ->where('user_id', $request->user()->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Log the orders for debugging
+            \Log::info('Orders with totals:', $orders->toArray());
+
+            return response()->json($orders);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching orders: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to fetch orders',
                 'message' => $e->getMessage()
             ], 500);
         }
