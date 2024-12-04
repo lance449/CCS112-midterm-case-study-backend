@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\OrderController;
 
 
 
@@ -36,4 +37,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::post('/user/update', [UserController::class, 'update']);
     Route::post('/user/update-password', [UserController::class, 'updatePassword']);
+    Route::post('/checkout', [OrderController::class, 'checkout']);
 });
