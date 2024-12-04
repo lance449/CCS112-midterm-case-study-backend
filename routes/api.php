@@ -6,6 +6,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\UserController;
 
 
 
@@ -13,6 +14,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::middleware('auth:sanctum')->get('/user', [AuthController::class, 'getUser']);
 
 Route::get('/products/search', [ProductController::class, 'search']);
 Route::apiResource('products', ProductController::class);
@@ -31,4 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cart', [CartController::class, 'store']);
     Route::delete('/cart/{id}', [CartController::class, 'destroy']);
     Route::delete('/cart', [CartController::class, 'clear']);
+    Route::get('/user', [UserController::class, 'show']);
+    Route::post('/user/update', [UserController::class, 'update']);
+    Route::post('/user/update-password', [UserController::class, 'updatePassword']);
 });
