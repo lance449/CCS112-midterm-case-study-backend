@@ -3,70 +3,86 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\Product;
+use App\Models\OrderItem;
 use App\Models\CartItem;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    public function checkout(Request $request)
+    public function store(Request $request)
     {
         try {
             DB::beginTransaction();
 
-            // Get cart items
-            $cartItems = CartItem::with('product')
-                ->where('user_id', $request->user()->id)
-                ->get();
+            $request->validate([
+                'customer_name' => 'required|string',
+                'shipping_address' => 'required|string',
+                'payment_method' => 'required|string',
+                'contact_number' => 'required|string',
+                'items' => 'required|array'
+            ]);
 
-            if ($cartItems->isEmpty()) {
-                return response()->json(['message' => 'Cart is empty'], 400);
-            }
-
-            // Check product quantities and update stock
-            foreach ($cartItems as $item) {
-                $product = Product::find($item->product_id);
-                
-                if ($product->quantity < $item->quantity) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => "Insufficient stock for {$product->description}",
-                        'available' => $product->quantity
-                    ], 400);
-                }
-
-                // Update product quantity
-                $product->quantity -= $item->quantity;
-                $product->save();
-            }
-
-            // Create order
+            // Create the order
             $order = Order::create([
-                'user_id' => $request->user()->id,
-                'total' => $cartItems->sum(function ($item) {
-                    return $item->quantity * $item->product->price;
+                'user_id' => auth()->id(),
+                'customer_name' => $request->customer_name,
+                'shipping_address' => $request->shipping_address,
+                'payment_method' => $request->payment_method,
+                'contact_number' => $request->contact_number,
+                'total_amount' => collect($request->items)->sum(function($item) {
+                    return $item['price'] * $item['quantity'];
                 }),
                 'status' => 'pending'
             ]);
 
-            // Clear cart
-            CartItem::where('user_id', $request->user()->id)->delete();
+            // Process each ordered item
+            foreach ($request->items as $item) {
+                // Find the product
+                $product = Product::find($item['product_id']);
+                
+                if (!$product) {
+                    throw new \Exception("Product not found");
+                }
+
+                // Calculate new quantity
+                $newQuantity = $product->quantity - $item['quantity'];
+                
+                if ($newQuantity < 0) {
+                    throw new \Exception("Not enough stock for " . $product->description);
+                }
+
+                // Update the product quantity
+                $product->quantity = $newQuantity;
+                $product->save();
+
+                // Create order item
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price']
+                ]);
+            }
+
+            // Clear the user's cart
+            CartItem::where('user_id', auth()->id())->delete();
 
             DB::commit();
 
             return response()->json([
+                'success' => true,
                 'message' => 'Order placed successfully',
                 'order' => $order
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Checkout error: ' . $e->getMessage());
+            
             return response()->json([
-                'message' => 'Error processing checkout',
-                'error' => $e->getMessage()
+                'success' => false,
+                'message' => $e->getMessage()
             ], 500);
         }
     }

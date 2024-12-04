@@ -65,9 +65,12 @@ class ProductController extends Controller
     public function search(Request $request)
     {
         $query = $request->input('query');
-        $products = Product::where('description', 'like', "%{$query}%")
-                           ->orWhere('category', 'like', "%{$query}%")
-                           ->get();
+        $products = Product::where(function($q) use ($query) {
+            $q->where('description', 'like', '%' . $query . '%')
+              ->orWhere('category', 'like', '%' . $query . '%');
+        })
+        ->paginate(10);
+        
         return response()->json($products);
     }
 }

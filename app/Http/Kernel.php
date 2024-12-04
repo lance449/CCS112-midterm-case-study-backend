@@ -17,4 +17,10 @@ class Kernel extends HttpKernel
         // ... other middlewares
         'admin' => \App\Http\Middleware\CheckAdminRole::class,
     ];
+
+    protected $middleware = [
+        // ...
+        \Illuminate\Http\Middleware\HandleCors::class,
+        // ...
+    ];
 } 

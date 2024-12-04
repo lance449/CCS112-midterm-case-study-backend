@@ -37,5 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::post('/user/update', [UserController::class, 'update']);
     Route::post('/user/update-password', [UserController::class, 'updatePassword']);
-    Route::post('/checkout', [OrderController::class, 'checkout']);
+    Route::post('/checkout', [OrderController::class, 'store']);
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::put('/cart/{id}', [CartController::class, 'update']);
 });

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use App\Models\Product;
 
 class CartController extends Controller
 {
@@ -28,6 +30,7 @@ class CartController extends Controller
     public function store(Request $request)
     {
         try {
+            DB::beginTransaction();
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 'quantity' => 'required|integer|min:1'
@@ -41,12 +44,13 @@ class CartController extends Controller
                 ['quantity' => $validated['quantity']]
             );
 
+            DB::commit();
             return response()->json($cartItem->load('product'));
         } catch (\Exception $e) {
-            Log::error('Cart update error: ' . $e->getMessage());
+            DB::rollBack();
+            Log::error('Cart error: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Error updating cart',
-                'error' => $e->getMessage()
+                'error' => 'Failed to add to cart'
             ], 500);
         }
     }
@@ -77,6 +81,29 @@ class CartController extends Controller
             Log::error('Cart clear error: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error clearing cart',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        try {
+            $cartItem = CartItem::where('user_id', auth()->id())
+                ->where('id', $id)
+                ->firstOrFail();
+
+            $cartItem->update([
+                'quantity' => $request->quantity
+            ]);
+
+            return response()->json([
+                'message' => 'Cart updated successfully',
+                'cart_item' => $cartItem
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error updating cart',
                 'error' => $e->getMessage()
             ], 500);
         }
