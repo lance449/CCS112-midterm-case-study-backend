@@ -3,62 +3,54 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
-    public function profile()
+    public function createAdmin(Request $request)
     {
-        try {
-            $user = auth()->user();
-            return response()->json([
-                'name' => $user->name,
-                'email' => $user->email
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error fetching profile',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
+        Log::info('Starting createAdmin request');
 
-    public function updateProfile(Request $request)
-    {
         try {
-            $user = auth()->user();
-            
+            // Basic validation
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email,' . $user->id,
-                'currentPassword' => 'required_with:newPassword',
-                'newPassword' => 'nullable|min:8|confirmed',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8|confirmed'
             ]);
 
-            if (isset($validated['currentPassword'])) {
-                if (!Hash::check($validated['currentPassword'], $user->password)) {
-                    return response()->json([
-                        'message' => 'Current password is incorrect'
-                    ], 422);
-                }
-                $user->password = Hash::make($validated['newPassword']);
-            }
+            Log::info('Validation passed');
 
-            $user->name = $validated['name'];
-            $user->email = $validated['email'];
-            $user->save();
+            // Create user using the model
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => 'admin'
+            ]);
+
+            Log::info('User created', ['user_id' => $user->id]);
 
             return response()->json([
-                'message' => 'Profile updated successfully',
+                'message' => 'Admin created successfully',
                 'user' => [
+                    'id' => $user->id,
                     'name' => $user->name,
-                    'email' => $user->email
+                    'email' => $user->email,
+                    'role' => $user->role
                 ]
-            ]);
+            ], 201);
+
         } catch (\Exception $e) {
+            Log::error('Error creating admin', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
-                'message' => 'Error updating profile',
+                'message' => 'Failed to create admin user',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -10,7 +10,11 @@ class ProductController extends Controller
 {
     public function index()
     {
-        return Product::all();
+        $products = Product::all();
+        return response()->json([
+            'data' => $products,
+            'success' => true
+        ]);
     }
 
     public function store(Request $request)
@@ -65,12 +69,13 @@ class ProductController extends Controller
     public function search(Request $request)
     {
         $query = $request->input('query');
-        $products = Product::where(function($q) use ($query) {
-            $q->where('description', 'like', '%' . $query . '%')
-              ->orWhere('category', 'like', '%' . $query . '%');
-        })
-        ->paginate(10);
-        
-        return response()->json($products);
+        $products = Product::where('description', 'like', "%{$query}%")
+                          ->orWhere('category', 'like', "%{$query}%")
+                          ->get();
+
+        return response()->json([
+            'data' => $products,
+            'success' => true
+        ]);
     }
 }
