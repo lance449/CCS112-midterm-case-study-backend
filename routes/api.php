@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\UserController;
 
 // Debug route to verify API is working
 Route::get('test', function() {
@@ -19,6 +20,7 @@ Route::post('register', [AuthController::class, 'register']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('user', [AuthController::class, 'getUser']);
+    
     // Products
     Route::get('/products', [ProductController::class, 'index']);
     
@@ -31,4 +33,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // Orders
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders', [OrderController::class, 'index']);
+    
+    // User Profile - keep only these routes
+    Route::get('/user/profile', [UserController::class, 'profile']);
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
+});
+
+// Add this route for debugging
+Route::get('/test-route', function() {
+    return response()->json(['message' => 'API is working']);
+});
+
+// Debug route - test if API is accessible
+Route::get('/ping', function() {
+    return response()->json(['message' => 'pong']);
+});
+
+// User routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Profile routes
+    Route::get('/profile', [UserController::class, 'profile']);
+    Route::put('/profile', [UserController::class, 'updateProfile']);
 });

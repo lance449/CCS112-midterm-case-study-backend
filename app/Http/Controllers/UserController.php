@@ -2,46 +2,65 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class UserController extends Controller
 {
-    public function show(Request $request)
+    public function profile()
     {
-        return response()->json($request->user());
+        try {
+            $user = auth()->user();
+            return response()->json([
+                'name' => $user->name,
+                'email' => $user->email
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error fetching profile',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function update(Request $request)
+    public function updateProfile(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $request->user()->id,
-        ]);
+        try {
+            $user = auth()->user();
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email,' . $user->id,
+                'currentPassword' => 'required_with:newPassword',
+                'newPassword' => 'nullable|min:8|confirmed',
+            ]);
 
-        $user = $request->user();
-        $user->update($validated);
+            if (isset($validated['currentPassword'])) {
+                if (!Hash::check($validated['currentPassword'], $user->password)) {
+                    return response()->json([
+                        'message' => 'Current password is incorrect'
+                    ], 422);
+                }
+                $user->password = Hash::make($validated['newPassword']);
+            }
 
-        return response()->json([
-            'message' => 'Profile updated successfully',
-            'user' => $user
-        ]);
-    }
+            $user->name = $validated['name'];
+            $user->email = $validated['email'];
+            $user->save();
 
-    public function updatePassword(Request $request)
-    {
-        $validated = $request->validate([
-            'current_password' => 'required|current_password',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $request->user()->update([
-            'password' => Hash::make($validated['password'])
-        ]);
-
-        return response()->json([
-            'message' => 'Password updated successfully'
-        ]);
+            return response()->json([
+                'message' => 'Profile updated successfully',
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error updating profile',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 } 
