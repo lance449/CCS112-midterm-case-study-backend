@@ -76,17 +76,40 @@ class CartController extends Controller
     public function destroy($id)
     {
         try {
+            // Validate the ID parameter
+            if (!$id) {
+                return response()->json([
+                    'message' => 'Invalid cart item ID'
+                ], 400);
+            }
+
+            // First, verify the cart item exists and belongs to the authenticated user
             $cartItem = CartItem::where('user_id', auth()->id())
                 ->where('id', $id)
-                ->firstOrFail();
+                ->first();
 
+            if (!$cartItem) {
+                return response()->json([
+                    'message' => 'Cart item not found or does not belong to user'
+                ], 404);
+            }
+
+            // Delete the cart item
             $cartItem->delete();
 
             return response()->json([
-                'message' => 'Item removed from cart successfully'
+                'message' => 'Item removed from cart successfully',
+                'success' => true
             ]);
+            
         } catch (\Exception $e) {
-            \Log::error('Error removing cart item: ' . $e->getMessage());
+            \Log::error('Error removing cart item: ' . $e->getMessage(), [
+                'cart_item_id' => $id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'message' => 'Error removing item from cart',
                 'error' => $e->getMessage()
