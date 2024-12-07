@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -12,7 +13,11 @@ class ProductController extends Controller
     {
         $products = Product::all();
         return response()->json([
-            'data' => $products,
+            'data' => $products->map(function ($product) {
+                return array_merge($product->toArray(), [
+                    'image_url' => $product->image_url
+                ]);
+            }),
             'success' => true
         ]);
     }
@@ -25,19 +30,35 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'quantity' => 'required|integer|min:0',
             'category' => 'required',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $product = Product::create($request->all());
-        return response()->json($product, 201);
+        $data = $request->except('image');
+        
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+            $data['image_path'] = $imagePath;
+        }
+
+        $product = Product::create($data);
+        
+        return response()->json(array_merge(
+            $product->toArray(),
+            ['image_url' => $product->image_url]
+        ), 201);
     }
 
     public function show($id)
     {
-        return Product::findOrFail($id);
+        $product = Product::findOrFail($id);
+        return response()->json(array_merge(
+            $product->toArray(),
+            ['image_url' => $product->image_url]
+        ));
     }
 
     public function update(Request $request, $id)
@@ -50,19 +71,43 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'quantity' => 'required|integer|min:0',
             'category' => 'required',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $product->update($request->all());
-        return response()->json($product, 200);
+        $data = $request->except('image');
+
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($product->image_path) {
+                Storage::disk('public')->delete($product->image_path);
+            }
+            
+            $imagePath = $request->file('image')->store('products', 'public');
+            $data['image_path'] = $imagePath;
+        }
+
+        $product->update($data);
+        
+        return response()->json(array_merge(
+            $product->toArray(),
+            ['image_url' => $product->image_url]
+        ), 200);
     }
 
     public function destroy($id)
     {
-        Product::destroy($id);
+        $product = Product::findOrFail($id);
+        
+        // Delete the image if it exists
+        if ($product->image_path) {
+            Storage::disk('public')->delete($product->image_path);
+        }
+        
+        $product->delete();
         return response()->json(null, 204);
     }
 
@@ -74,7 +119,11 @@ class ProductController extends Controller
                           ->get();
 
         return response()->json([
-            'data' => $products,
+            'data' => $products->map(function ($product) {
+                return array_merge($product->toArray(), [
+                    'image_url' => $product->image_url
+                ]);
+            }),
             'success' => true
         ]);
     }

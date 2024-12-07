@@ -12,5 +12,17 @@ class Product extends Model
         'price',
         'quantity',
         'category',
+        'image_path',
     ];
+
+    /**
+     * Get the full URL for the product image
+     */
+    public function getImageUrlAttribute()
+    {
+        if ($this->image_path) {
+            return asset('storage/' . $this->image_path);
+        }
+        return null;
+    }
 }
