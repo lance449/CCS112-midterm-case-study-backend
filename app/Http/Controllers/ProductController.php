@@ -9,43 +9,45 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
+    private function validateProduct(Request $request, $id = null)
+    {
+        $rules = [
+            'barcode' => 'required|unique:products' . ($id ? ',barcode,' . $id : ''),
+            'description' => 'required',
+            'price' => 'required|numeric|min:0',
+            'quantity' => 'required|integer|min:0',
+            'category' => 'required',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120'
+        ];
+
+        return Validator::make($request->all(), $rules);
+    }
+
     public function index()
     {
         $products = Product::all();
         return response()->json([
-            'data' => $products->map(function ($product) {
-                return array_merge($product->toArray(), [
-                    'image_url' => $product->image_url
-                ]);
-            }),
+            'data' => $products->map(fn($product) => array_merge(
+                $product->toArray(),
+                ['image_url' => $product->image_url]
+            )),
             'success' => true
         ]);
     }
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'barcode' => 'required|unique:products',
-            'description' => 'required',
-            'price' => 'required|numeric|min:0',
-            'quantity' => 'required|integer|min:0',
-            'category' => 'required',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120'
-        ]);
-
+        $validator = $this->validateProduct($request);
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
         $data = $request->except('image');
-        
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('products', 'public');
-            $data['image_path'] = $imagePath;
+            $data['image_path'] = $request->file('image')->store('products', 'public');
         }
 
         $product = Product::create($data);
-        
         return response()->json(array_merge(
             $product->toArray(),
             ['image_url' => $product->image_url]
@@ -64,34 +66,21 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-        
-        $validator = Validator::make($request->all(), [
-            'barcode' => 'required|unique:products,barcode,' . $id,
-            'description' => 'required',
-            'price' => 'required|numeric|min:0',
-            'quantity' => 'required|integer|min:0',
-            'category' => 'required',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120'
-        ]);
+        $validator = $this->validateProduct($request, $id);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
         $data = $request->except('image');
-
         if ($request->hasFile('image')) {
-            // Delete old image if exists
             if ($product->image_path) {
                 Storage::disk('public')->delete($product->image_path);
             }
-            
-            $imagePath = $request->file('image')->store('products', 'public');
-            $data['image_path'] = $imagePath;
+            $data['image_path'] = $request->file('image')->store('products', 'public');
         }
 
         $product->update($data);
-        
         return response()->json(array_merge(
             $product->toArray(),
             ['image_url' => $product->image_url]
@@ -101,12 +90,9 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
-        
-        // Delete the image if it exists
         if ($product->image_path) {
             Storage::disk('public')->delete($product->image_path);
         }
-        
         $product->delete();
         return response()->json(null, 204);
     }
@@ -119,11 +105,10 @@ class ProductController extends Controller
                           ->get();
 
         return response()->json([
-            'data' => $products->map(function ($product) {
-                return array_merge($product->toArray(), [
-                    'image_url' => $product->image_url
-                ]);
-            }),
+            'data' => $products->map(fn($product) => array_merge(
+                $product->toArray(),
+                ['image_url' => $product->image_url]
+            )),
             'success' => true
         ]);
     }
